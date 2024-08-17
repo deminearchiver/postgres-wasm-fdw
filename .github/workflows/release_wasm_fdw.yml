@@ -4,7 +4,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+' # Push events to matching wasm fdw tag, i.e. v1.0.2
+      - v[0-9]+.[0-9]+.[0-9]+
 
 permissions:
   contents: write
@@ -14,22 +14,28 @@ jobs:
     name: Create Wasm FDW Release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Rust
-        run: |
-          # install Rust
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable && \
-            rustup --version && \
-            rustc --version && \
-            cargo --version
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: |
+            wasm32-unknown-unknown
 
-          # add wasm32-unknown-unknown target
-          rustup target add wasm32-unknown-unknown
+      - run: cargo install cargo-component --locked --version 0.15.0
 
-          # install Wasm component
-          cargo install cargo-component --locked --version 0.13.2
+      # - name: Set up Rust
+      #   run: |
+      #     # install Rust
+      #     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable && \
+      #       rustup --version && \
+      #       rustc --version && \
+      #       cargo --version
+
+      #     # add wasm32-unknown-unknown target
+      #     rustup target add wasm32-unknown-unknown
+
+      #     # install Wasm component
+      #     cargo install cargo-component --locked --version 0.13.2
 
       - name: Build Wasm FDW
         run: |
@@ -86,31 +92,30 @@ jobs:
               fdw_package_name '${PACKAGE}',
               fdw_package_version '${VERSION}',
               fdw_package_checksum '${CHECKSUM}',
-              api_url 'https://api.github.com'
+              database_url 'https://[databaseName]-[organizationName].turso.io'
+              auth_token '[authToken]'
             );
 
-          create schema github;
+          # create schema turso;
 
-          create foreign table github.events (
-            id text,
-            type text,
-            actor jsonb,
-            repo jsonb,
-            payload jsonb,
-            public boolean,
-            created_at timestamp
-          )
-            server example_server
-            options (
-              object 'events',
-              rowid_column 'id'
-            );
+          # create foreign table turso.events (
+          #   id text,
+          #   type text,
+          #   actor jsonb,
+          #   repo jsonb,
+          #   payload jsonb,
+          #   public boolean,
+          #   created_at timestamp
+          # )
+          #   server example_server
+          #   options (
+          #     object 'events',
+          #     rowid_column 'id'
+          #   );
 
           For more details, please visit https://fdw.dev.
           EOF
-
       - name: Create release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
@@ -119,4 +124,3 @@ jobs:
             README.txt
             checksum.txt
             ./target/wasm32-unknown-unknown/release/*.wasm
-
